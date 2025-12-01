@@ -1,0 +1,11 @@
+#bolt에는 모드 기능이 제공되지 않음
+
+train: /home/work/datasets/CODE/TXT/train_dino_Bolt.txt
+val: /home/work/datasets/CODE/TXT/val_dino_Bolt.txt 
+test: /home/work/datasets/CODE/TXT/test_dino_Bolt.txt
+
+parts: bolt
+preprocess: off
+mode: simple
+
+# python Dinov2.py --project dino_bolt --data-yaml yaml/bolt_dino.yaml --epochs 30 --model-size base --lr 1e-4 --lr-head 1e-4 --lr-backbone 1e-5 --freeze-epochs 5

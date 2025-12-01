@@ -1,3 +1,18 @@
+"""
+python tsne_dino.py \
+  --project BoltDINO \
+  --data-yaml yaml/BoltDINO.yaml \
+  --model-size base \
+  --imgsz 224 \
+  --batch 32 \
+  --epochs 70 \
+  --lr-backbone 1e-5 \
+  --lr-head 1e-4 \
+  --freeze-epochs 5
+"""
+
+
+
 import argparse
 import torch
 import torch.nn as nn
@@ -261,16 +276,33 @@ class DINOv2Trainer:
         self.preprocess_enabled = preprocess_flag
 
         if parts_lower in ['frontdoor', 'door']:
+            # Door: mode에 따라 2-class(simple) / 4-class 제공
             if self.mode == 'simple':
                 # 1,2,3 -> 1 로 매핑하여 2-class 학습
                 self.class_names = ['good', 'defect']
                 self.label_map = {0: 0, 1: 1, 2: 1, 3: 1}
             else:
+                # 기본: 4-class (출고실링 / 실링없음 / 작업실링 / 테이프실링)
                 self.class_names = ['good', 'no sealing', 'sealing differs', 'tape sealing']
                 self.label_map = None
         elif parts_lower == 'bolt':
-            self.class_names = ['good', 'bad']
-            self.label_map = None
+            # Bolt: mode에 따라 2-class(simple) / 4-class 제공
+            # DINOsplit.py 기준:
+            #  - 기본: 0(good), 1(bad)
+            #  - 4-class: 0(정측면 양품), 1(정측면 불량), 2(측면 양품), 3(측면 불량)
+            if self.mode == 'simple':
+                # 2-class: good / bad
+                self.class_names = ['good', 'bad']
+                self.label_map = None  # TXT가 이미 0/1 형태이므로 별도 매핑 불필요
+            else:
+                # 4-class: front/side x good/bad
+                self.class_names = [
+                    'frontside_good',   # 0
+                    'fronside_bad',    # 1
+                    'side_good',    # 2
+                    'side_bad',     # 3
+                ]
+                self.label_map = None  # TXT의 0~3 라벨을 그대로 사용
         else:
             raise ValueError("'parts' 값이 유효하지 않습니다. 'frontdoor' 또는 'bolt' 중 하나여야 합니다.")
 
@@ -302,11 +334,12 @@ class DINOv2Trainer:
         train_labels = [parse_label(line) for line in train_data]
         val_labels = [parse_label(line) for line in val_data]
 
-        # door/frontdoor 원천 라벨은 0~3, bolt는 0~1 범위 검사
+        # door/frontdoor 원천 라벨은 0~3,
+        # bolt는 mode에 따라 0~1(simple, 2-class) 또는 0~3(4-class) 범위 검사
         if self.parts in ['frontdoor', 'door']:
             max_allowed = 3
         elif self.parts == 'bolt':
-            max_allowed = 1
+            max_allowed = 1 if self.mode == 'simple' else 3
         else:
             max_allowed = self.num_classes - 1
 
@@ -334,7 +367,27 @@ class DINOv2Trainer:
         print(f"  - 검증 이미지: {len(val_data)}개")
         for cid, name in enumerate(self.class_names):
             print(f"    * {cid} - {name}: train {train_counts[cid]} / val {val_counts[cid]}")
-        
+
+        # --- [클래스 불균형 대응: Inverse Frequency 기반 클래스 가중치 적용] ---
+        total_samples = sum(train_counts)
+        class_weights = []
+
+        print(f"\n⚖️  클래스 가중치 계산 (Inverse Frequency):")
+        for cid, count in enumerate(train_counts):
+            name = self.class_names[cid]
+            if count > 0:
+                weight = total_samples / (self.num_classes * count)
+            else:
+                # 학습 샘플이 0개인 클래스는 기본 가중치 1.0
+                weight = 1.0
+            class_weights.append(weight)
+            print(f"    * {cid} - {name}: {count}개 (Weight: {weight:.4f})")
+
+        weight_tensor = torch.tensor(class_weights, dtype=torch.float).to(self.device)
+        self.criterion = nn.CrossEntropyLoss(weight=weight_tensor)
+        print(f"  ✓ CrossEntropyLoss에 클래스 가중치가 적용되었습니다.\n")
+        # -----------------------------------------------------------------
+
         return train_txt, val_txt, test_txt
     
     def _get_transforms(self, is_train=True):
@@ -1119,12 +1172,12 @@ def main():
 
 if __name__ == "__main__":
     # 예시 1: 기본 학습 (test 데이터 있는 경우)
-    # python train_dinov2.py --project defect_detection --data-yaml data/defect.yaml
+    # python tsne_dino.py --project defect_detection --data-yaml data/defect.yaml
     
     # 예시 2: Large 모델 사용
-    # python train_dinov2.py --project defect_detection --data-yaml data/defect.yaml --model-size large
+    # python tsne_dino.py --project defect_detection --data-yaml data/defect.yaml --model-size large
     
     # 예시 3: 커스텀 설정 (초기 5 에포크 백본 고정)
-    # python train_dinov2.py --project defect_detection --data-yaml data/defect.yaml --model-size base --imgsz 384 --batch 16 --epochs 50 --lr 5e-5 --lr-backbone 1e-6 --lr-head 5e-5 --freeze-epochs 5
+    # python tsne_dino.py --project defect_detection --data-yaml data/defect.yaml --model-size base --imgsz 384 --batch 16 --epochs 50 --lr 5e-5 --lr-backbone 1e-6 --lr-head 5e-5 --freeze-epochs 5
     
     main()
