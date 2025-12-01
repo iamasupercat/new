@@ -1,0 +1,13 @@
+# 모드를 simple이라고 명시해줄 경우 양품/불량 2-class 학습, 
+# 모드를 명시해주지 않을 경우 양품/실링없음/작업실링/테이프실링 4-class 학습
+
+train: /home/work/datasets/CODE/TXT/train_resnet_high_fobb.txt
+val: /home/work/datasets/CODE/TXT/val_resnet_high_fobb.txt 
+test: /home/work/datasets/CODE/TXT/test_resnet_high_fobb.txt
+
+parts: frontdoor
+mode: simple 
+preprocess: off
+
+# python Dinov2.py --project dino_high_simple --data-yaml yaml/door_dino_high.yaml --epochs 30 --model-size base --lr 1e-4 --lr-head 1e-4 --lr-backbone 1e-5 --freeze-epochs 5
+# python tsne_dino.py --project dino_high_simple_tsne_obb --data-yaml yaml/door_dino_high.yaml --epochs 30 --model-size base --lr 1e-4 --lr-head 1e-4 --lr-backbone 1e-5 --freeze-epochs 5

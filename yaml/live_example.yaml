@@ -1,0 +1,119 @@
+# ============================================
+# 프론트도어 실시간 검사 설정 (Soft Voting)
+# ============================================
+# 파일명: frontdoor_realtime_soft.yaml
+
+mode: frontdoor
+
+# YOLO 모델
+yolo_model: runs/door_yolo_20241030_143025/weights/best.pt
+
+# DINOv2 모델
+dino_high: runs/high_dino_20241030_145030/weights/best.pt
+dino_mid: runs/mid_dino_20241030_150045/weights/best.pt
+dino_low: runs/low_dino_20241030_151020/weights/best.pt
+
+# Voting 방법
+voting_method: soft
+
+# YOLO 신뢰도 임계값
+conf_threshold: 0.25
+
+
+# ============================================
+# 프론트도어 실시간 검사 설정 (Hard Voting)
+# ============================================
+# 파일명: frontdoor_realtime_hard.yaml
+
+mode: frontdoor
+
+yolo_model: runs/door_yolo_20241030_143025/weights/best.pt
+
+dino_high: runs/high_dino_20241030_145030/weights/best.pt
+dino_mid: runs/mid_dino_20241030_150045/weights/best.pt
+dino_low: runs/low_dino_20241030_151020/weights/best.pt
+
+voting_method: hard
+
+conf_threshold: 0.3
+
+
+# ============================================
+# 볼트 실시간 검사 설정
+# ============================================
+# 파일명: bolt_realtime.yaml
+
+mode: bolt
+
+# YOLO 모델
+yolo_model: runs/bolt_yolo_20241030_160000/weights/best.pt
+
+# DINOv2 모델
+dino_bolt: runs/bolt_dino_20241030_161500/weights/best.pt
+
+# YOLO 신뢰도 임계값
+conf_threshold: 0.3
+
+
+# ============================================
+# 사용 예시
+# ============================================
+
+# 1. 프론트도어 검사 (웹캠)
+# python realtime_inspection.py --config configs/frontdoor_realtime_soft.yaml --source 0
+
+# 2. 프론트도어 검사 (외부 USB 카메라)
+# python realtime_inspection.py --config configs/frontdoor_realtime_soft.yaml --source 1
+
+# 3. 볼트 검사 (웹캠)
+# python realtime_inspection.py --config configs/bolt_realtime.yaml --source 0
+
+# 4. RTSP 네트워크 카메라 사용
+# python realtime_inspection.py --config configs/frontdoor_realtime_soft.yaml --source "rtsp://192.168.1.100:554/stream"
+
+# 5. 비디오 파일로 테스트
+# python realtime_inspection.py --config configs/bolt_realtime.yaml --source "test_video.mp4"
+
+# 6. CPU 사용
+# python realtime_inspection.py --config configs/frontdoor_realtime_soft.yaml --source 0 --device cpu
+
+
+# ============================================
+# 동작 흐름
+# ============================================
+
+# 프론트도어 모드:
+# 1. 카메라에서 high, mid, low 세 부위가 각각 1개씩 감지될 때까지 대기
+# 2. 조건이 만족되면 3초 타이머 시작
+# 3. 3초 동안 조건이 유지되면 마지막 프레임을 캡처
+# 4. 각 부위를 crop하여 DINOv2로 분류
+# 5. Hard/Soft voting으로 최종 판정
+# 6. 결과를 터미널에 출력
+
+# 볼트 모드:
+# 1. 카메라에서 3~8번 프레임 객체가 정확히 1개 감지될 때까지 대기
+# 2. 조건이 만족되면 5초 타이머 시작
+# 3. 5초 동안 조건이 유지되면 마지막 프레임을 캡처
+# 4. 프레임 내 볼트들을 찾아 개수 체크 (3~5번 프레임은 2개 필요)
+# 5. 각 볼트를 DINOv2로 분류
+# 6. 하나라도 불량이면 전체 불량으로 판정
+# 7. 결과를 터미널에 출력
+
+
+# ============================================
+# 카메라 소스 옵션
+# ============================================
+
+# 웹캠 (내장 카메라): --source 0
+# USB 카메라 1: --source 1
+# USB 카메라 2: --source 2
+
+# RTSP 카메라:
+# --source "rtsp://username:password@192.168.1.100:554/stream1"
+
+# IP 카메라 (HTTP):
+# --source "http://192.168.1.100:8080/video"
+
+# 비디오 파일:
+# --source "test_video.mp4"
+# --source "/path/to/video.avi"

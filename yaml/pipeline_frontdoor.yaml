@@ -1,0 +1,4 @@
+yolo_model: runs/door_20251030_072015_tune_n70_30/iter/weights/best.pt
+high: runs/dino_high_simple_20251030_003927/weights/best.pt
+mid: runs/dino_mid_simple_20251030_015049/weights/best.pt
+low: runs/dino_low_simple_20251030_021410/weights/best.pt

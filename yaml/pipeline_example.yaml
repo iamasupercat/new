@@ -1,0 +1,69 @@
+# ============================================
+# 예시: 프론트도어용 모델 경로만 포함 (loader 요구 키명 준수)
+# ============================================
+
+# 이 파일은 예시입니다. 실제 사용 시에는 아래 중 하나의 블록만 남기고 저장하세요.
+
+# 활성 예시(프론트도어):
+yolo_model: runs/door_yolo_20241030_143025/weights/best.pt
+high: runs/high_dino_20241030_145030/weights/best.pt
+mid: runs/mid_dino_20241030_150045/weights/best.pt
+low: runs/low_dino_20241030_151020/weights/best.pt
+
+# 참고: 보팅 방식, 모드, conf, 프로젝트명은 CLI 인자로 지정합니다.
+#   --mode frontdoor --voting soft --project frontdoor_eval --conf 0.25
+
+
+# ============================================
+# 예시: 볼트용 모델 경로만 포함 (필요 시 위 블록 대신 사용)
+# ============================================
+# yolo_model: runs/bolt_yolo_20241030_160000/weights/best.pt
+# bolt: runs/bolt_dino_20241030_161500/weights/best.pt
+
+
+# ============================================
+# 실행 예시 (새 CLI 반영)
+# ============================================
+# 1) 프론트도어 + soft voting
+# python code/new/yolov11_dinov2.py \
+#   --config code/new/yaml/pipeline_example.yaml \
+#   --txt /abs/path/to/test_images.txt \
+#   --mode frontdoor \
+#   --voting soft \
+#   --project frontdoor_eval \
+#   --conf 0.25 \
+#   --device cuda
+
+# 2) 프론트도어 + hard voting
+# python code/new/yolov11_dinov2.py \
+#   --config code/new/yaml/pipeline_example.yaml \
+#   --txt /abs/path/to/test_images.txt \
+#   --mode frontdoor \
+#   --voting hard \
+#   --project frontdoor_eval
+
+# 3) 볼트
+# (위 프론트도어 블록을 주석 처리하고, 볼트 블록을 활성화한 뒤 실행)
+# python code/new/yolov11_dinov2.py \
+#   --config code/new/yaml/pipeline_example.yaml \
+#   --txt /abs/path/to/test_images.txt \
+#   --mode bolt \
+#   --project bolt_eval
+
+
+# ============================================
+# 결과 폴더 구조
+# ============================================
+# runs/
+# ├── frontdoor_eval_YYYYmmdd_HHMMSS/
+# │   ├── crops/
+# │   ├── visualizations/
+# │   ├── confusion_matrix.png
+# │   ├── metrics.json
+# │   └── results.json
+# └── bolt_eval_YYYYmmdd_HHMMSS/
+#     ├── crops/
+#     ├── visualizations/
+#     ├── confusion_matrix.png
+#     ├── metrics.json
+#     └── results.json

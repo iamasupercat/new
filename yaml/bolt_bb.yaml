@@ -1,0 +1,19 @@
+train: /home/work/datasets/CODE/TXT/train_bolt_bb.txt
+val: /home/work/datasets/CODE/TXT/val_bolt_bb.txt 
+test: /home/work/datasets/CODE/TXT/test_bolt_bb.txt
+
+num_classes: 8
+
+# Classes
+names:
+  0: bolt frontside
+  1: bolt side
+  2: sedan (trunklid)
+  3: suv (trunklid)
+  4: hood 
+  5: long (frontfender)
+  6: mid (frontfender)
+  7: short (frontfender)
+
+# python yolov11.py --project bolt_bb --data-yaml yaml/bolt_bb.yaml --epochs 30 --tune --tune-iterations 10 --model yolov11s.pt
+# 나머지 파라미터는 yolov11.py 참고

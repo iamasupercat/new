@@ -1,0 +1,86 @@
+# ============================================
+# DINOv2 양품/불량 분류 YAML 파일 예시
+# ============================================
+
+# 예시 1: 기본 구조
+# 파일명: defect_detection.yaml
+
+train: /absolute/path/to/train_data.txt
+val: /absolute/path/to/val_data.txt
+test: /absolute/path/to/test_data.txt  # 선택사항
+
+
+# ============================================
+# 예시 2: 상대 경로 사용
+# ============================================
+# 파일명: defect_simple.yaml
+
+train: data/defect/train.txt
+val: data/defect/val.txt
+
+
+# ============================================
+# txt 파일 형식 안내
+# ============================================
+
+# train_data.txt 예시:
+# /absolute/path/to/images/good_001.jpg 0
+# /absolute/path/to/images/good_002.jpg 0
+# /absolute/path/to/images/defect_001.jpg 1
+# /absolute/path/to/images/defect_002.jpg 1
+# /absolute/path/to/images/good_003.jpg 0
+# ...
+
+# 형식: <이미지_경로> <라벨>
+# - 라벨 0: 양품 (good)
+# - 라벨 1: 불량 (defect)
+
+
+# ============================================
+# 실제 사용 예시
+# ============================================
+
+# 1. 디렉토리 구조:
+# project/
+# ├── data/
+# │   ├── defect_detection.yaml
+# │   ├── train.txt
+# │   ├── val.txt
+# │   └── images/
+# │       ├── train/
+# │       │   ├── good/
+# │       │   │   ├── img_001.jpg
+# │       │   │   ├── img_002.jpg
+# │       │   │   └── ...
+# │       │   └── defect/
+# │       │       ├── img_001.jpg
+# │       │       ├── img_002.jpg
+# │       │       └── ...
+# │       └── val/
+# │           ├── good/
+# │           └── defect/
+# └── train_dinov2.py
+
+# 2. train.txt 내용:
+# data/images/train/good/img_001.jpg 0
+# data/images/train/good/img_002.jpg 0
+# data/images/train/good/img_003.jpg 0
+# data/images/train/defect/img_001.jpg 1
+# data/images/train/defect/img_002.jpg 1
+# data/images/train/defect/img_003.jpg 1
+
+# 3. val.txt 내용:
+# data/images/val/good/img_001.jpg 0
+# data/images/val/good/img_002.jpg 0
+# data/images/val/defect/img_001.jpg 1
+# data/images/val/defect/img_002.jpg 1
+
+
+# ============================================
+# 주의사항
+# ============================================
+# 1. 이미지 경로와 라벨은 공백으로 구분
+# 2. 라벨은 반드시 0(양품) 또는 1(불량)
+# 3. 경로에 공백이 있는 경우, 마지막 공백 이후가 라벨로 인식됨
+# 4. 빈 줄은 자동으로 무시됨
+# 5. txt 파일은 UTF-8 인코딩 권장

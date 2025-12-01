@@ -1,0 +1,108 @@
+# ============================================
+# 예시 1: 일반 바운딩 박스 (Detection)
+# ============================================
+# 파일명: door_dataset.yaml
+
+train: /absolute/path/to/train_images.txt
+val: /absolute/path/to/val_images.txt
+test: /absolute/path/to/test_images.txt  # 선택사항
+
+nc: 3  # 클래스 개수
+names: ['high', 'mid', 'low']  # 클래스 이름
+
+
+# ============================================
+# 예시 2: 회전된 바운딩 박스 (OBB)
+# ============================================
+# 파일명: door_obb_dataset.yaml
+
+train: /absolute/path/to/train_images.txt
+val: /absolute/path/to/val_images.txt
+
+nc: 3
+names: ['high', 'mid', 'low']
+
+
+# ============================================
+# 예시 3: 볼트 검출 데이터셋
+# ============================================
+# 파일명: bolt_dataset.yaml
+
+train: data/bolt/train_images.txt
+val: data/bolt/val_images.txt
+test: data/bolt/test_images.txt
+
+nc: 3
+names: ['bolt', 'nut', 'screw']
+
+
+# ============================================
+# 예시 4: 단일 클래스
+# ============================================
+# 파일명: single_class_dataset.yaml
+
+train: /path/to/train.txt
+val: /path/to/val.txt
+
+nc: 1
+names: ['object']
+
+
+# ============================================
+# 예시 5: 다중 클래스 (딕셔너리 형식도 가능)
+# ============================================
+# 파일명: multi_class_dataset.yaml
+
+train: /path/to/train.txt
+val: /path/to/val.txt
+
+nc: 5
+names:
+  0: background
+  1: person
+  2: car
+  3: truck
+  4: bus
+
+# 또는 리스트 형식으로
+# names: ['background', 'person', 'car', 'truck', 'bus']
+
+
+# ============================================
+# txt 파일 형식 안내
+# ============================================
+
+# train_images.txt 예시:
+# /absolute/path/to/images/img001.jpg
+# /absolute/path/to/images/img002.jpg
+# /absolute/path/to/images/img003.jpg
+# ...
+
+# 각 이미지에 대응하는 라벨 파일은 동일한 경로에 .txt 확장자로 존재해야 합니다:
+# /absolute/path/to/images/img001.txt (라벨 파일)
+# /absolute/path/to/images/img002.txt (라벨 파일)
+# /absolute/path/to/images/img003.txt (라벨 파일)
+
+
+# ============================================
+# 라벨 파일 형식
+# ============================================
+
+# 일반 바운딩 박스 (Detection) - 각 줄에 5개 값:
+# class_id x_center y_center width height
+# 
+# 예시 (img001.txt):
+# 0 0.5 0.5 0.3 0.4
+# 1 0.7 0.3 0.2 0.3
+# 2 0.2 0.8 0.15 0.2
+
+# 회전된 바운딩 박스 (OBB) - 각 줄에 9개 값 (4개 꼭지점):
+# class_id x1 y1 x2 y2 x3 y3 x4 y4
+#
+# 예시 (img001.txt):
+# 0 0.1 0.1 0.9 0.1 0.9 0.9 0.1 0.9
+# 1 0.2 0.2 0.5 0.15 0.55 0.45 0.25 0.5
+# 2 0.3 0.6 0.4 0.6 0.4 0.7 0.3 0.7
+
+# 주의: 모든 좌표값은 0~1 사이로 정규화되어야 합니다
+# x 좌표는 이미지 너비로, y 좌표는 이미지 높이로 나눈 값

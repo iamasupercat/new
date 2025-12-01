@@ -1,0 +1,16 @@
+train: /home/work/datasets/CODE/TXT/train_bolt_obb.txt
+val: /home/work/datasets/CODE/TXT/val_bolt_obb.txt
+test: /home/work/datasets/CODE/TXT/test_bolt_obb.txt
+
+num_classes: 8
+
+# Classes
+names:
+  0: bolt_frontside
+  1: bolt_side
+  2: sedan (trunklid)
+  3: suv (trunklid)
+  4: hood 
+  5: long (frontfender)
+  6: mid (frontfender)
+  7: short (frontfender)

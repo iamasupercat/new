@@ -1,0 +1,14 @@
+train: /home/work/datasets/CODE/TXT/train_fobb.txt
+val: /home/work/datasets/CODE/TXT/val_fobb.txt 
+test: /home/work/datasets/CODE/TXT/test_fobb.txt
+
+num_classes: 3
+
+# Classes
+names:
+  0: high
+  1: mid
+  2: low
+
+# python yolov11.py --project door_obb --data-yaml yaml/door.yaml --epochs 50 --tune --tune-iterations 10 --model yolov11s.pt
+# 나머지 파라미터는 yolov11.py 참고
