@@ -9,6 +9,86 @@ python tsne_dino.py \
   --lr-backbone 1e-5 \
   --lr-head 1e-4 \
   --freeze-epochs 5
+
+python tsne_dino.py \
+  --project BoltDINO_4class \
+  --data-yaml yaml/BoltDINO_4class.yaml \
+  --model-size base \
+  --imgsz 224 \
+  --batch 32 \
+  --epochs 70 \
+  --lr-backbone 1e-5 \
+  --lr-head 1e-4 \
+  --freeze-epochs 5
+  
+########################################################
+
+python tsne_dino.py \
+  --project DoorDINO_high_2class \
+  --data-yaml yaml/DoorDINO_high_2class.yaml \
+  --model-size base \
+  --imgsz 224 \
+  --batch 32 \
+  --epochs 70 \
+  --lr-backbone 1e-5 \
+  --lr-head 1e-4 \
+  --freeze-epochs 5
+
+python tsne_dino.py \
+  --project DoorDINO_high_5class \
+  --data-yaml yaml/DoorDINO_high_5class.yaml \
+  --model-size base \
+  --imgsz 224 \
+  --batch 32 \
+  --epochs 70 \
+  --lr-backbone 1e-5 \
+  --lr-head 1e-4 \
+  --freeze-epochs 5
+
+python tsne_dino.py \
+  --project DoorDINO_mid_2class \
+  --data-yaml yaml/DoorDINO_mid_2class.yaml \
+  --model-size base \
+  --imgsz 224 \
+  --batch 32 \
+  --epochs 70 \
+  --lr-backbone 1e-5 \
+  --lr-head 1e-4 \
+  --freeze-epochs 5
+
+python tsne_dino.py \
+  --project DoorDINO_mid_5class \
+  --data-yaml yaml/DoorDINO_mid_5class.yaml \
+  --model-size base \
+  --imgsz 224 \
+  --batch 32 \
+  --epochs 70 \
+  --lr-backbone 1e-5 \
+  --lr-head 1e-4 \
+  --freeze-epochs 5
+
+python tsne_dino.py \
+  --project DoorDINO_low_2class \
+  --data-yaml yaml/DoorDINO_low_2class.yaml \
+  --model-size base \
+  --imgsz 224 \
+  --batch 32 \
+  --epochs 70 \
+  --lr-backbone 1e-5 \
+  --lr-head 1e-4 \
+  --freeze-epochs 5
+
+python tsne_dino.py \
+  --project DoorDINO_low_5class \
+  --data-yaml yaml/DoorDINO_low_5class.yaml \
+  --model-size base \
+  --imgsz 224 \
+  --batch 32 \
+  --epochs 70 \
+  --lr-backbone 1e-5 \
+  --lr-head 1e-4 \
+  --freeze-epochs 5
+  
 """
 
 
@@ -39,16 +119,23 @@ import pandas as pd
 
 class DefectDataset(Dataset):
     """양품/불량 분류 데이터셋"""
-    def __init__(self, txt_file, transform=None, label_map=None):
+    def __init__(self, txt_file, transform=None, label_map=None, skip_missing=True, verbose=True):
         """
         Args:
             txt_file (str): 이미지 경로와 라벨이 담긴 txt 파일
                            형식: /path/to/image.jpg 0 (또는 1)
             transform: 이미지 변환
+            skip_missing (bool): 존재하지 않는 이미지 건너뛰기 (기본값: True)
+            verbose (bool): 에러 메시지 출력 여부 (기본값: True)
         """
         self.data = []
         self.transform = transform
         self.label_map = label_map
+        self.skip_missing = skip_missing
+        self.verbose = verbose
+        
+        missing_count = 0
+        total_count = 0
         
         with open(txt_file, 'r') as f:
             for line in f:
@@ -59,7 +146,24 @@ class DefectDataset(Dataset):
                 if len(parts) >= 2:
                     img_path = ' '.join(parts[:-1])  # 경로에 공백이 있을 수 있음
                     label = int(parts[-1])
+                    total_count += 1
+                    
+                    # 파일 존재 여부 확인
+                    if skip_missing and not os.path.exists(img_path):
+                        missing_count += 1
+                        if verbose and missing_count <= 10:  # 처음 10개만 출력
+                            print(f"⚠️  이미지 파일을 찾을 수 없습니다 (건너뜀): {img_path}")
+                        elif verbose and missing_count == 11:
+                            print(f"⚠️  ... (더 많은 파일이 누락되었지만 출력을 생략합니다)")
+                        continue
+                    
                     self.data.append((img_path, label))
+        
+        if verbose and missing_count > 0:
+            print(f"\n📊 데이터셋 로드 완료:")
+            print(f"  - 총 항목: {total_count}")
+            print(f"  - 유효한 항목: {len(self.data)}")
+            print(f"  - 누락된 항목: {missing_count} ({100.*missing_count/total_count:.1f}%)\n")
     
     def __len__(self):
         return len(self.data)
@@ -70,7 +174,8 @@ class DefectDataset(Dataset):
         try:
             image = Image.open(img_path).convert('RGB')
         except Exception as e:
-            print(f"Error loading image {img_path}: {e}")
+            if self.verbose:
+                print(f"Error loading image {img_path}: {e}")
             # 더미 이미지 반환
             image = Image.new('RGB', (224, 224), color='black')
         
@@ -276,14 +381,17 @@ class DINOv2Trainer:
         self.preprocess_enabled = preprocess_flag
 
         if parts_lower in ['frontdoor', 'door']:
-            # Door: mode에 따라 2-class(simple) / 4-class 제공
+            # Door: 원천 라벨은 0~4 (0: good, 1~4: defect 세부 클래스)
+            #  - mode=simple: 1,2,3,4 -> 1 로 취합해서 2-class(good/defect) 학습
+            #  - 그 외: 원하면 5-class 그대로 사용할 수 있도록 확장 가능
             if self.mode == 'simple':
-                # 1,2,3 -> 1 로 매핑하여 2-class 학습
+                # 1,2,3,4 -> 1 로 매핑하여 2-class 학습
                 self.class_names = ['good', 'defect']
-                self.label_map = {0: 0, 1: 1, 2: 1, 3: 1}
+                self.label_map = {0: 0, 1: 1, 2: 1, 3: 1, 4: 1}
             else:
-                # 기본: 4-class (출고실링 / 실링없음 / 작업실링 / 테이프실링)
-                self.class_names = ['good', 'no sealing', 'sealing differs', 'tape sealing']
+                # 기본: 5-class (예시: good + 4개 불량 세부 클래스)
+                # 필요시 YAML/데이터 정의에 맞게 이름만 수정해서 사용
+                self.class_names = ['good', 'cls1', 'cls2', 'cls3', 'cls4']
                 self.label_map = None
         elif parts_lower == 'bolt':
             # Bolt: mode에 따라 2-class(simple) / 4-class 제공
@@ -334,10 +442,10 @@ class DINOv2Trainer:
         train_labels = [parse_label(line) for line in train_data]
         val_labels = [parse_label(line) for line in val_data]
 
-        # door/frontdoor 원천 라벨은 0~3,
+        # door/frontdoor 원천 라벨은 0~4,
         # bolt는 mode에 따라 0~1(simple, 2-class) 또는 0~3(4-class) 범위 검사
         if self.parts in ['frontdoor', 'door']:
-            max_allowed = 3
+            max_allowed = 4
         elif self.parts == 'bolt':
             max_allowed = 1 if self.mode == 'simple' else 3
         else:
@@ -541,7 +649,8 @@ class DINOv2Trainer:
         print(f"  - weights/best.pt: 최적 모델 (Val Acc: {best_val_acc:.2f}%)")
         print(f"  - weights/last.pt: 마지막 모델")
         print(f"  - results.png: 학습 곡선")
-        print(f"  - confusion_matrix.png: 검증 혼동행렬")
+        print(f"  - confusion_matrix.png: 검증 혼동행렬 (count)")
+        print(f"  - confusion_matrix_normalized.png: 검증 혼동행렬 (row-normalized)")
         print(f"  - val_tsne.png: 검증 t-SNE 피처맵")
         print(f"  - metrics.json: 학습 메트릭")
         
@@ -822,34 +931,35 @@ class DINOv2Trainer:
                 print(f"  - (경고) 2D t-SNE 이미지 생성 실패: {e}")
 
     def _plot_confusion_matrix(self, y_true, y_pred):
-        """혼동행렬 히트맵 저장"""
+        """혼동행렬 히트맵 저장 (count + row-normalized)"""
         num_classes = self.num_classes if self.num_classes is not None else (max(max(y_true), max(y_pred)) + 1)
 
-        # 혼동행렬 계산
+        # 혼동행렬 계산 (count)
         cm = [[0 for _ in range(num_classes)] for _ in range(num_classes)]
         for t, p in zip(y_true, y_pred):
             if 0 <= t < num_classes and 0 <= p < num_classes:
                 cm[t][p] += 1
 
+        # numpy 배열로 변환
+        cm_np = np.array(cm, dtype=np.int32)
+
+        # ---- 1) Count 기반 혼동행렬 ----
         fig, ax = plt.subplots(figsize=(6 + num_classes * 0.4, 5 + num_classes * 0.3))
-        im = ax.imshow(cm, interpolation='nearest', cmap='Blues')
+        im = ax.imshow(cm_np, interpolation='nearest', cmap='Blues')
         ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
-        # 축/라벨
         class_names = self.class_names if self.class_names else [str(i) for i in range(num_classes)]
         ax.set(xticks=range(num_classes), yticks=range(num_classes),
                xticklabels=class_names, yticklabels=class_names,
                ylabel='True label', xlabel='Predicted label',
-               title='Confusion Matrix (Validation)')
+               title='Confusion Matrix (Validation - Count)')
 
-        # 라벨 회전
         plt.setp(ax.get_xticklabels(), rotation=45, ha='right', rotation_mode='anchor')
 
-        # 셀 내 숫자 주석
-        thresh = max(max(row) for row in cm) * 0.5 if cm and cm[0] else 0
+        thresh = cm_np.max() * 0.5 if cm_np.size > 0 else 0
         for i in range(num_classes):
             for j in range(num_classes):
-                value = cm[i][j]
+                value = cm_np[i, j]
                 ax.text(j, i, str(value), ha='center', va='center',
                         color='white' if value > thresh else 'black')
 
@@ -858,10 +968,41 @@ class DINOv2Trainer:
         plt.savefig(out_path, dpi=300, bbox_inches='tight')
         plt.close()
 
+        # ---- 2) Row-normalized 혼동행렬 ----
+        with np.errstate(all='ignore'):
+            row_sums = cm_np.sum(axis=1, keepdims=True)
+            # 0으로 나누는 경우는 0으로 채움
+            cm_norm = np.divide(cm_np, row_sums, out=np.zeros_like(cm_np, dtype=np.float64), where=row_sums != 0)
+
+        fig, ax = plt.subplots(figsize=(6 + num_classes * 0.4, 5 + num_classes * 0.3))
+        im = ax.imshow(cm_norm, interpolation='nearest', cmap='Blues', vmin=0.0, vmax=1.0)
+        ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+        ax.set(xticks=range(num_classes), yticks=range(num_classes),
+               xticklabels=class_names, yticklabels=class_names,
+               ylabel='True label', xlabel='Predicted label',
+               title='Confusion Matrix (Validation - Normalized)')
+
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right', rotation_mode='anchor')
+
+        # 셀 내 값(비율) 표시
+        thresh = 0.5
+        for i in range(num_classes):
+            for j in range(num_classes):
+                value = cm_norm[i, j]
+                ax.text(j, i, f"{value:.2f}", ha='center', va='center',
+                        color='white' if value > thresh else 'black')
+
+        plt.tight_layout()
+        out_path_norm = self.save_dir / 'confusion_matrix_normalized.png'
+        plt.savefig(out_path_norm, dpi=300, bbox_inches='tight')
+        plt.close()
+
         # 간단한 정답 개수 출력
-        total_correct = sum(cm[i][i] for i in range(num_classes))
+        total_correct = int(cm_np.trace())
         total_samples = len(y_true)
-        print(f"혼동행렬 저장: {out_path}")
+        print(f"혼동행렬 저장 (count): {out_path}")
+        print(f"혼동행렬 저장 (normalized): {out_path_norm}")
         print(f"검증 정답 개수: {total_correct} / {total_samples} ({(100.0*total_correct/total_samples if total_samples else 0):.2f}%)")
 
     def _test_and_classify_images(self, test_txt):
@@ -872,6 +1013,19 @@ class DINOv2Trainer:
         Args:
             test_txt (str): 테스트 이미지 경로와 라벨이 담긴 txt 파일
         """
+        # best.pt 모델 로드
+        weights_dir = self.save_dir / 'weights'
+        best_pt_path = weights_dir / 'best.pt'
+        
+        if best_pt_path.exists():
+            print(f"\n🔄 최고 성능 모델(best.pt) 로드 중...")
+            checkpoint = torch.load(best_pt_path, map_location=self.device)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            best_val_acc = checkpoint.get('val_acc', 0.0)
+            print(f"✓ best.pt 로드 완료 (Val Acc: {best_val_acc:.2f}%)")
+        else:
+            print(f"\n⚠️  best.pt를 찾을 수 없습니다. 현재 모델 상태로 테스트를 진행합니다.")
+        
         # 폴더 생성
         correct_dir = self.save_dir / 'test_results' / 'correct'
         incorrect_dir = self.save_dir / 'test_results' / 'incorrect'
@@ -1060,7 +1214,7 @@ class DINOv2Trainer:
         print(f"  - Incorrect: {incorrect_dir}")
         print(f"  (정답/오답 폴더에 _attn이 붙은 어텐션 맵 이미지가 최대 {MAX_ATTN_MAPS_PER_CLASS}개씩 저장됩니다.)")
         
-        # 테스트 혼동행렬 생성
+        # 테스트 혼동행렬 생성 (count + normalized)
         if len(all_labels) > 0:
             self._plot_test_confusion_matrix(all_labels, all_predictions)
         
@@ -1079,34 +1233,34 @@ class DINOv2Trainer:
         print(f"✓ 테스트 결과 저장: {self.save_dir / 'test_results.json'}")
 
     def _plot_test_confusion_matrix(self, y_true, y_pred):
-        """테스트 데이터 혼동행렬 저장"""
+        """테스트 데이터 혼동행렬 저장 (count + row-normalized)"""
         num_classes = self.num_classes if self.num_classes is not None else (max(max(y_true), max(y_pred)) + 1)
 
-        # 혼동행렬 계산
+        # 혼동행렬 계산 (count)
         cm = [[0 for _ in range(num_classes)] for _ in range(num_classes)]
         for t, p in zip(y_true, y_pred):
             if 0 <= t < num_classes and 0 <= p < num_classes:
                 cm[t][p] += 1
 
+        cm_np = np.array(cm, dtype=np.int32)
+
+        # ---- 1) Count 기반 ----
         fig, ax = plt.subplots(figsize=(6 + num_classes * 0.4, 5 + num_classes * 0.3))
-        im = ax.imshow(cm, interpolation='nearest', cmap='Blues')
+        im = ax.imshow(cm_np, interpolation='nearest', cmap='Blues')
         ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
-        # 축/라벨
         class_names = self.class_names if self.class_names else [str(i) for i in range(num_classes)]
         ax.set(xticks=range(num_classes), yticks=range(num_classes),
                xticklabels=class_names, yticklabels=class_names,
                ylabel='True label', xlabel='Predicted label',
-               title='Confusion Matrix (Test)')
+               title='Confusion Matrix (Test - Count)')
 
-        # 라벨 회전
         plt.setp(ax.get_xticklabels(), rotation=45, ha='right', rotation_mode='anchor')
 
-        # 셀 내 숫자 주석
-        thresh = max(max(row) for row in cm) * 0.5 if cm and cm[0] else 0
+        thresh = cm_np.max() * 0.5 if cm_np.size > 0 else 0
         for i in range(num_classes):
             for j in range(num_classes):
-                value = cm[i][j]
+                value = cm_np[i, j]
                 ax.text(j, i, str(value), ha='center', va='center',
                         color='white' if value > thresh else 'black')
 
@@ -1115,7 +1269,90 @@ class DINOv2Trainer:
         plt.savefig(out_path, dpi=300, bbox_inches='tight')
         plt.close()
 
-        print(f"✓ 테스트 혼동행렬 저장: {out_path}")
+        # ---- 2) Row-normalized ----
+        with np.errstate(all='ignore'):
+            row_sums = cm_np.sum(axis=1, keepdims=True)
+            # 0으로 나누는 경우는 0으로 채움
+            cm_norm = np.divide(cm_np, row_sums, out=np.zeros_like(cm_np, dtype=np.float64), where=row_sums != 0)
+
+        fig, ax = plt.subplots(figsize=(6 + num_classes * 0.4, 5 + num_classes * 0.3))
+        im = ax.imshow(cm_norm, interpolation='nearest', cmap='Blues', vmin=0.0, vmax=1.0)
+        ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+        ax.set(xticks=range(num_classes), yticks=range(num_classes),
+               xticklabels=class_names, yticklabels=class_names,
+               ylabel='True label', xlabel='Predicted label',
+               title='Confusion Matrix (Test - Normalized)')
+
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right', rotation_mode='anchor')
+
+        thresh = 0.5
+        for i in range(num_classes):
+            for j in range(num_classes):
+                value = cm_norm[i, j]
+                ax.text(j, i, f"{value:.2f}", ha='center', va='center',
+                        color='white' if value > thresh else 'black')
+
+        plt.tight_layout()
+        out_path_norm = self.save_dir / 'test_confusion_matrix_normalized.png'
+        plt.savefig(out_path_norm, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        print(f"✓ 테스트 혼동행렬 저장 (count): {out_path}")
+        print(f"✓ 테스트 혼동행렬 저장 (normalized): {out_path_norm}")
+
+
+def clean_txt_file(txt_path, output_path=None, verbose=True):
+    """
+    txt 파일에서 존재하지 않는 이미지 경로를 제거
+    
+    Args:
+        txt_path (str): 원본 txt 파일 경로
+        output_path (str): 정리된 txt 파일 저장 경로 (None이면 원본 덮어쓰기)
+        verbose (bool): 진행 상황 출력 여부
+    
+    Returns:
+        tuple: (유효한 항목 수, 제거된 항목 수)
+    """
+    if output_path is None:
+        output_path = txt_path
+    
+    valid_lines = []
+    removed_count = 0
+    total_count = 0
+    
+    with open(txt_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            
+            parts = line.split()
+            if len(parts) >= 2:
+                img_path = ' '.join(parts[:-1])
+                total_count += 1
+                
+                if os.path.exists(img_path):
+                    valid_lines.append(line + '\n')
+                else:
+                    removed_count += 1
+                    if verbose and removed_count <= 10:
+                        print(f"⚠️  제거: {img_path}")
+                    elif verbose and removed_count == 11:
+                        print(f"⚠️  ... (더 많은 항목이 제거되었지만 출력을 생략합니다)")
+    
+    # 정리된 파일 저장
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.writelines(valid_lines)
+    
+    if verbose:
+        print(f"\n📊 txt 파일 정리 완료: {txt_path}")
+        print(f"  - 총 항목: {total_count}")
+        print(f"  - 유효한 항목: {len(valid_lines)}")
+        print(f"  - 제거된 항목: {removed_count} ({100.*removed_count/total_count:.1f}%)")
+        print(f"  - 저장 위치: {output_path}\n")
+    
+    return len(valid_lines), removed_count
 
 
 def main():
@@ -1125,6 +1362,8 @@ def main():
                         help='프로젝트 이름')
     parser.add_argument('--data-yaml', type=str, required=True,
                         help='데이터셋 YAML 파일 경로')
+    parser.add_argument('--clean-txt', action='store_true',
+                        help='학습 전 txt 파일에서 존재하지 않는 이미지 경로 제거')
     parser.add_argument('--model-size', type=str, default='small',
                         choices=['small', 'base', 'large', 'giant'],
                         help='DINOv2 모델 크기 (기본값: small)')
@@ -1165,6 +1404,17 @@ def main():
     
     # 데이터 로드
     train_txt, val_txt, test_txt = trainer.load_data_yaml(args.data_yaml)
+    
+    # txt 파일 정리 (옵션)
+    if args.clean_txt:
+        print(f"\n{'='*60}")
+        print(f"🧹 txt 파일 정리 시작")
+        print(f"{'='*60}\n")
+        clean_txt_file(train_txt, verbose=True)
+        clean_txt_file(val_txt, verbose=True)
+        if test_txt and os.path.exists(test_txt):
+            clean_txt_file(test_txt, verbose=True)
+        print(f"{'='*60}\n")
     
     # 학습 시작
     trainer.train(train_txt, val_txt, test_txt)
